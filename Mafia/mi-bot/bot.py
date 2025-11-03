@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Token del bot
-TOKEN = 'TU_TOKEN_AQUI'  # Sustituye con tu token real
+TOKEN = os.getenv('TOKEN')  # Sustituye con tu token real
 
 # Crear cliente
 intents = discord.Intents.default()
