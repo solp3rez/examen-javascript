@@ -1,66 +1,65 @@
-import requests
+import time
+from selenium import webdriver
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
 from bs4 import BeautifulSoup
 import pandas as pd
 
-print("Iniciando extracción de productos de Supermercados DIA...\n")
+# Configura el WebDriver (usando Firefox)
+def configurar_driver():
+    # Opciones del navegador
+    firefox_options = Options()
+    firefox_options.add_argument("--headless")  # Ejecutar sin abrir ventana (modo "headless")
+    
+    # Configura el servicio de geckodriver
+    service = Service('/usr/local/bin/geckodriver')  # La ruta de geckodriver
+    driver = webdriver.Firefox(service=service, options=firefox_options)
+    return driver
 
-# URL del sitio DIA (categoría leches descremadas)
-url = "https://diaonline.supermercadosdia.com.ar/frescos/leches/leches-descremadas"
-headers = {"User-Agent": "Mozilla/5.0"}
+# Obtener los productos de Coto usando Selenium
+def obtener_productos_dia():
+    url = "https://diaonline.supermercadosdia.com.ar/almacen/golosinas-y-alfajores?initialMap=c,c&initialQuery=almacen/golosinas-y-alfajores&map=category-1,category-2,category-3&query=/almacen/golosinas-y-alfajores/alfajores&searchState"
+    driver = configurar_driver()
+    driver.get(url)
+    
+    # Esperar que la página cargue
+    time.sleep(5)
+    
+    # Obtener el HTML de la página cargada
+    soup = BeautifulSoup(driver.page_source, "html.parser")
+    
+    # Buscar todos los productos
+    productos = soup.find_all("section")
+    datos_productos = []
+    
+    for producto in productos:
+        try:
+            nombre = producto.find("h3").span.text
+            precio = producto.find("span",{"class":"diaio-store-5-x-sellingPriceValue"}).text
+            enlace = "https://www.supermercadosdia.com.ar/" + producto.find("a")["href"]
+            datos_productos.append({"nombre": nombre, "precio": precio, "enlace": enlace})
+        except Exception as e:
+            print(f"Error: {e}")
+    
+    # Cerrar el navegador
+    driver.quit()
+    
+    return datos_productos
 
-# Hacer la solicitud HTTP
-response = requests.get(url, headers=headers)
-if response.status_code != 200:
-    print("Error al acceder al sitio:", response.status_code)
-    exit()
+# Guardar los productos en un archivo CSV
+def guardar_productos_en_csv(productos):
+    if productos:
+        df = pd.DataFrame(productos)
+        df.to_csv("productos_dia.csv", index=False, encoding="utf-8")
+        print(f"✅ Se guardaron {len(df)} productos en productos_dia.csv")
+    else:
+        print("❌ No se extrajeron productos")
 
-# Analizar el HTML con BeautifulSoup
-soup = BeautifulSoup(response.text, "html.parser")
+# Función principal
+def main():
+    productos = obtener_productos_dia()
+    guardar_productos_en_csv(productos)
+    print(productos[:5])  # Mostrar los primeros 5 productos
 
-# Buscar el contenedor principal de productos (prueba ambas clases posibles)
-contenedor = soup.find("div", class_="flex mt0 mb0 pt0 pb8 justify-start vtex-flex-layout-0-x-flexRowContent vtex-flex-layout-0-x-flexRowContent--grid_products items-stretch w-100")
-
-if not contenedor:
-    contenedor = soup.find("div", class_="diaio-search-result-0-x-gallery diaio-search-result-0-x-gallery--default flex flex-row flex-wrap items-stretch bn ph1 na4 pl9-l")
-
-if not contenedor:
-    print("❌ No se encontró el contenedor principal de productos.")
-    exit()
-
-# Buscar los productos dentro del contenedor
-productos_html = contenedor.find_all("div", class_="vtex-product-summary-2-x-container")
-
-productos = []
-
-# Recorrer cada producto encontrado
-for p in productos_html:
-    nombre_tag = p.find("span", class_="vtex-store-components-3-x-productBrand")
-    precio_tag = p.find("span", class_="vtex-product-price-1-x-sellingPriceValue")
-
-    if nombre_tag and precio_tag:
-        nombre = nombre_tag.text.strip()
-        precio = precio_tag.text.strip()
-        link_tag = p.find("a", class_="vtex-product-summary-2-x-clearLink")
-        url_producto = (
-            "https://diaonline.supermercadosdia.com.ar" + link_tag.get("href")
-            if link_tag and link_tag.get("href")
-            else "N/A"
-        )
-
-        productos.append({
-            "Supermercado": "DIA",
-            "Producto": nombre,
-            "Precio": precio,
-            "URL": url_producto
-        })
-
-# Crear DataFrame
-df = pd.DataFrame(productos)
-
-# Guardar en CSV
-df.to_csv("productos_dia.csv", index=False)
-
-# Mostrar resultados
-print(f"✅ Se extrajeron {len(df)} productos del sitio DIA.")
-print("📄 Archivo generado: productos_dia.csv\n")
-print(df.head())
+if __name__ == "__main__":
+    main()
