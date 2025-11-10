@@ -1,7 +1,14 @@
+import sys
 import pathlib
+
+# Agrega la carpeta raíz del proyecto al PYTHONPATH
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT))
+
 from src.carrefour_scraper import obtener_productos_carrefour
 from src.dia_scraper import obtener_productos_dia
 from src.coto_scraper import obtener_productos_coto
+
 
 archivos = [
     "productos_carrefour.csv",
