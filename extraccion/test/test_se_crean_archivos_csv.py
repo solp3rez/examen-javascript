@@ -1,5 +1,6 @@
 import sys
 import pathlib
+from utils import guardar_productos_en_csv
 
 # Agrega la carpeta raíz del proyecto al PYTHONPATH
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -21,9 +22,13 @@ def test_verificar_si_se_crean_archivos():
         directorio = pathlib.Path("src", archivo)
         assert not directorio.exists() 
 
-    obtener_productos_carrefour()
-    obtener_productos_dia()
-    obtener_productos_coto()
+    productos = obtener_productos_carrefour()
+    guardar_productos_en_csv(productos)
+    obtener_productos_dia(productos)
+    obtener_productos_coto(productos)
+   
     for archivo in archivos:
         directorio = pathlib.Path("src", archivo)
         assert not directorio.exists() 
+
+
