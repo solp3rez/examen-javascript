@@ -8,6 +8,8 @@ name = "pypi"
 python-dotenv = "*"
 
 [dev-packages]
+pytest = "*"
+pytest-asyncio = "*"
 
 [requires]
 python_version = "3.12"

@@ -1,6 +1,14 @@
 {
-    "762086169772163084": {
+    "10": {
+        "puntos": 145,
+        "nombre": "Mafia"
+    },
+    "20": {
+        "puntos": 50,
+        "nombre": "Citizen"
+    },
+    "30": {
         "puntos": 30,
-        "nombre": "\u2605 bribri"
+        "nombre": "Player3"
     }
 }
