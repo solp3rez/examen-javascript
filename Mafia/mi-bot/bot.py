@@ -43,7 +43,8 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
 # --- 4. FUNCIONES DE RANKING ---
 
-def load_ranking():
+#guarda y carga
+def load_ranking():#
     """Carga el ranking desde el archivo JSON."""
     if not os.path.exists(RANKING_FILE):
         return {}
