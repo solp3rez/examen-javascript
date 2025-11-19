@@ -1,82 +1,98 @@
 import pytest
-import unittest.mock
-import json
 import os
 from unittest.mock import AsyncMock, MagicMock
+import bot
+from discord.ext import tasks # Necesario para detener el loop en tests
 
-# Importar el módulo principal (bot.py) para acceder a las variables y funciones
-import bot 
+# Archivo ranking temporal
+TEST_RANKING_FILE = "tests/test_ranking.json"
+bot.RANKING_FILE = TEST_RANKING_FILE
 
-# --- Rutas y Constantes para el Testing ---
-TEST_RANKING_FILE = 'tests/test_ranking.json'
-bot.RANKING_FILE = TEST_RANKING_FILE # Sobreescribir la ruta para el testing
+# Estado inicial del juego (actualizado para coincidir con el bot.py)
+ESTADO_INICIAL = {
+    "activa": False,
+    "max_jugadores": 0,
+    "modo": "normal", # Agregado 'modo'
+    "fase_actual": "Inscripción", # Cambiado de 'fase' a 'fase_actual'
+    "jugadores_vivos": {}, # Cambiado de 'jugadores_unidos'
+    "jugadores_muertos": {}, # Agregado
+    "roles_asignados": {}, # Cambiado de 'roles'
+    "votos_dia": {},
+    "acciones_nocturnas": {}, # Cambiado de 'victima_noche_id'
+    "canal_juego": None,
+}
 
-# --- Fixture 1: Limpieza del Estado Global y Archivo de Ranking ---
+# -------------------------------
+# Reiniciar estado antes/después
+# -------------------------------
 @pytest.fixture(autouse=True)
-def cleanup_state():
-    """Asegura que el estado global del bot esté limpio antes y después de cada test."""
-    
-    # 1. Limpieza antes del test
-    original_state = {
-        "activa": False,
-        "max_jugadores": 0,
-        "jugadores_unidos": [], 
-        "roles": {},        
-        "canal_juego": None,        
-        "victima_noche_id": None, 
-        "fase": "Noche",        
-        "modo_rapido": False,    
-        "timer_task": None      
-    }
+def reiniciar_juego():
+
+    # Asegurar que el loop esté detenido antes de iniciar cualquier test
+    if bot.partida_loop.is_running():
+        bot.partida_loop.stop()
+
     bot.partida_mafia.clear()
-    bot.partida_mafia.update(original_state)
-    bot.votos_dia.clear()
+    bot.partida_mafia.update(ESTADO_INICIAL)
 
     if os.path.exists(TEST_RANKING_FILE):
         os.remove(TEST_RANKING_FILE)
 
-    yield # Aquí se ejecuta el test
+    yield
 
-    # 2. Limpieza después del test (Post-test cleanup)
+    # Asegurar que el loop esté detenido al finalizar el test
+    if bot.partida_loop.is_running():
+        bot.partida_loop.stop()
+        
     bot.partida_mafia.clear()
-    bot.partida_mafia.update(original_state)
-    bot.votos_dia.clear()
+    bot.partida_mafia.update(ESTADO_INICIAL)
+
     if os.path.exists(TEST_RANKING_FILE):
         os.remove(TEST_RANKING_FILE)
 
-# --- Fixture 2: Creación de Mock Objects de Discord ---
 
+# -------------------------------
+# Crear jugador falso
+# -------------------------------
 @pytest.fixture
-def member_factory(player_id, player_name):
-    """Crea un objeto Mock que simula un discord.Member o discord.User."""
-    member = MagicMock()
-    member.id = player_id
-    member.name = player_name
-    member.mention = f"<@{player_id}>"
-    member.send = AsyncMock() # Para simular el envío de DMs
-    return member
+def crear_jugador():
+    def crear(id, nombre):
+        m = MagicMock()
+        m.id = id
+        m.name = nombre
+        m.mention = f"<@{id}>"
+        m.send = AsyncMock()
+        return m
+    return crear
 
+
+# -------------------------------
+# Bot falso
+# -------------------------------
 @pytest.fixture
-def mock_ctx(mock_bot):
-    """Crea un objeto Mock que simula el Contexto de un Comando (ctx)."""
+def bot_falso():
+    b = MagicMock()
+    # Usamos AsyncMock para simular métodos asíncronos como get_user si fuera necesario
+    b.get_user = MagicMock(return_value=MagicMock(name="UsuarioFalso")) 
+    bot.bot = b
+    return b
+
+
+# -------------------------------
+# Contexto (ctx) falso
+# -------------------------------
+@pytest.fixture
+def ctx_falso(crear_jugador, bot_falso):
+
     ctx = MagicMock()
-    ctx.bot = mock_bot
-    ctx.guild = MagicMock() # Simula un contexto en un servidor (no DM)
-    ctx.channel = AsyncMock() # Canal donde se ejecuta el comando
-    ctx.channel.send = AsyncMock() # Simular el envío de mensajes al canal
+    ctx.guild = MagicMock() # Necesario para diferenciar comandos DM/Canal
+
+    ctx.channel = MagicMock()
+    ctx.channel.send = AsyncMock()
     ctx.send = ctx.channel.send
-    
-    # Se añade un mock_member por defecto para ctx.author
-    ctx.author = member_factory(101, "Player1") 
-    
-    # Simular la guild (servidor) para asignar roles
-    ctx.guild.name = "Test Server" 
+
+    ctx.author = crear_jugador(101, "Jugador1")
+
+    ctx.bot = bot_falso
 
     return ctx
-
-@pytest.fixture
-def mock_bot():
-    """Crea un objeto Mock para el bot, crucial para get_user en ranking."""
-    bot_mock = MagicMock()
-    bot_mock.get_user = MagicMock() # Será reemplazado por la implementación del test
-    return bot_mock
