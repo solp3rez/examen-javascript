@@ -5,7 +5,8 @@ import bot
 from discord.ext import tasks # Necesario para detener el loop en tests
 
 # Archivo ranking temporal
-TEST_RANKING_FILE = "tests/test_ranking.json"
+# ¡CORRECCIÓN APLICADA AQUÍ! Se eliminó el prefijo 'tests/'
+TEST_RANKING_FILE = "test_ranking.json" 
 bot.RANKING_FILE = TEST_RANKING_FILE
 
 # Estado inicial del juego (actualizado para coincidir con el bot.py)
